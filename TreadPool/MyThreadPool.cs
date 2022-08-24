@@ -29,9 +29,9 @@ public class MyThreadPool
      
     }
 
-    public HandleEvent QueueUserWorkItem(Action Work, CancellationToken cancellationToken) => QueueUserWorkItem(new HandleEvent(), Work, cancellationToken);
+    public HandleEvent QueueUserWorkItem(Action Work) => QueueUserWorkItem(new HandleEvent(), Work);
 
-    public HandleEvent QueueUserWorkItem(object? Parameter, Action Work, CancellationToken cancellationToken)
+    public HandleEvent QueueUserWorkItem(object? Parameter, Action Work)
     {
        
         var result = new HandleEvent();
@@ -42,7 +42,6 @@ public class MyThreadPool
 
             var timer = Stopwatch.StartNew();
             if (timer.ElapsedTicks>1)
-            cancellationToken.ThrowIfCancellationRequested();
         }
         if (!_CanWork) throw new InvalidOperationException("Попытка передать задание уничтоженному пулу потоков");
 
