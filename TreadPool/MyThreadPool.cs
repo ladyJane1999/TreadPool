@@ -29,16 +29,20 @@ public class MyThreadPool
      
     }
 
-    public HandleEvent QueueUserWorkItem(Action Work) => QueueUserWorkItem(new HandleEvent(), Work);
+    public HandleEvent QueueUserWorkItem(Action Work, CancellationToken cancellationToken) => QueueUserWorkItem(new HandleEvent(), Work, cancellationToken);
 
-    public HandleEvent QueueUserWorkItem(object? Parameter, Action Work)
+    public HandleEvent QueueUserWorkItem(object? Parameter, Action Work, CancellationToken cancellationToken)
     {
        
         var result = new HandleEvent();
         void localExecute()
         {
             Work();
-            result.onFinished(); 
+            result.onFinished();
+
+            var timer = Stopwatch.StartNew();
+            if (timer.ElapsedTicks>1)
+            cancellationToken.ThrowIfCancellationRequested();
         }
         if (!_CanWork) throw new InvalidOperationException("Попытка передать задание уничтоженному пулу потоков");
 
@@ -71,10 +75,27 @@ public class MyThreadPool
 
             _ExecuteEvent.Set(); // разрешаем доступ к очереди
 
-            var timer = Stopwatch.StartNew();
-            work();
-            timer.Stop();
+            try
+            {
+                var timer = Stopwatch.StartNew();
+                work();
+                timer.Stop();
+            }
+            catch (ThreadInterruptedException)
+            {
+                throw;
+            }
+            catch (Exception e)
+            {
+                Trace.TraceError("Ошибка выполнения задания в потоке ", e);
+            }
+            finally
+            {
+                Trace.TraceInformation("Поток  завершил свою работу");
+                if (!_WorkingEvent.SafeWaitHandle.IsClosed)
+                    _WorkingEvent.Set();
 
+            }
         }           
     }
 
