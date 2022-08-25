@@ -19,13 +19,12 @@ public class MyThreadPool
 
     private void Initialize()
     {
-       
-            var thread = new Thread(WorkingThread)
-            {
-                IsBackground = true
-            };
-            _Threads[0] = thread;
-            thread.Start();
+        var thread = new Thread(WorkingThread)
+          {
+             IsBackground = true
+          };
+        _Threads[0] = thread;
+         thread.Start();
      
     }
 
@@ -53,7 +52,6 @@ public class MyThreadPool
     {
         while (_CanWork)
         {
-
             while (_Works.Count == 0) // если (до тех пор пока) в очереди нет заданий
             {
                 _ExecuteEvent.Set(); // освобождаем очередь
