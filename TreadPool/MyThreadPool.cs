@@ -4,7 +4,7 @@ using TreadPool;
 public class MyThreadPool
 {
     private readonly Thread[] _Threads;
-    private readonly Queue<(Action Work, object? Parameter)> _Works = new();
+    private readonly Queue<(Action Work, CancellationToken cancellationToken)> _Works = new();
     private volatile bool _CanWork = true;
 
     private readonly AutoResetEvent _WorkingEvent = new(false);
@@ -29,19 +29,13 @@ public class MyThreadPool
      
     }
 
-    public HandleEvent QueueUserWorkItem(Action Work) => QueueUserWorkItem(new HandleEvent(), Work);
-
-    public HandleEvent QueueUserWorkItem(object? Parameter, Action Work)
+    public HandleEvent QueueUserWorkItem(Action Work, CancellationToken cancellationToken)
     {
-       
         var result = new HandleEvent();
         void localExecute()
         {
             Work();
             result.onFinished();
-
-            var timer = Stopwatch.StartNew();
-            if (timer.ElapsedTicks>1)
         }
         if (!_CanWork) throw new InvalidOperationException("Попытка передать задание уничтоженному пулу потоков");
 
@@ -49,7 +43,7 @@ public class MyThreadPool
         if (!_CanWork) throw new InvalidOperationException("Попытка передать задание уничтоженному пулу потоков");
        
         _ExecuteEvent.Set();
-        _Works.Enqueue((localExecute, result));
+        _Works.Enqueue((localExecute, cancellationToken));
         _WorkingEvent.Set();
 
         return result;
@@ -57,7 +51,6 @@ public class MyThreadPool
   
     private void WorkingThread()
     {
-
         while (_CanWork)
         {
 
@@ -70,15 +63,17 @@ public class MyThreadPool
                 _ExecuteEvent.WaitOne(); // запрашиваем доступ к очереди вновь
             }
 
-            var (work, parameter) = _Works.Dequeue();
+            var (work, cancellationToken) = _Works.Dequeue();
 
             _ExecuteEvent.Set(); // разрешаем доступ к очереди
 
             try
             {
-                var timer = Stopwatch.StartNew();
+                if (cancellationToken.IsCancellationRequested)
+                    Console.WriteLine("Операция отменена");
+                cancellationToken.ThrowIfCancellationRequested();
+
                 work();
-                timer.Stop();
             }
             catch (ThreadInterruptedException)
             {
@@ -86,18 +81,17 @@ public class MyThreadPool
             }
             catch (Exception e)
             {
-                Trace.TraceError("Ошибка выполнения задания в потоке ", e);
+                Console.WriteLine("Ошибка выполнения задания в потоке ", e);
             }
             finally
             {
-                Trace.TraceInformation("Поток  завершил свою работу");
+                Console.WriteLine("Поток  завершил свою работу");
                 if (!_WorkingEvent.SafeWaitHandle.IsClosed)
                     _WorkingEvent.Set();
-
             }
         }           
     }
-
+    
     private const int _DisposeThreadJoinTimeout = 100;
     public void Dispose()
     {
