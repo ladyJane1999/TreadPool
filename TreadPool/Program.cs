@@ -2,7 +2,6 @@
 {
     static void Main()
     {
-
         var thread_pool = new MyThreadPool();
         
         CancellationTokenSource cancelTokenSource = new CancellationTokenSource();
